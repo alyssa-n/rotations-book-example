@@ -1,0 +1,706 @@
+
+
+<html>
+	<head>
+		<title>Tossing a Book in the Air</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+
+		</style>
+	</head>
+	<body>
+
+
+        
+		<script src="http://rotations.berkeley.edu/js/BlockToss/three62.js"></script>
+	       <script src="http://rotations.berkeley.edu/js/BlockToss/OrbitControls.js"></script>
+		<script src="http://rotations.berkeley.edu/js/BlockToss/numeric-1.2.6.js"></script>
+		<script src="http://rotations.berkeley.edu/js/BlockToss/dygraph-combined.js"></script>
+		<script src="http://rotations.berkeley.edu/js/BlockToss/dat.gui.min.js"></script>
+		<script src="http://rotations.berkeley.edu/js/BlockToss/Detector.js"></script>
+		<div id="canvas" style="position: absolute; left:0px; top:0px"> 
+		
+		</div>
+		<div id="div1" style="width:350; height:175;" ></div>
+		<div id="div2" style="width:350; height:175;"></div>
+		<div id="div3" style="width:350; height:175;"></div>
+
+
+	   	<script >
+		
+	description = "         Wooden Block Tossed in Vacuum\n                     by Tung M. Phan\n  Last updated on 03/29/2014 at 01:15 PM\n\nNote: We recommend using a browser that supports WebGL for optimal graphics."
+	eulermessage = "Set of Euler angles: 1-3-2";
+	webglwarning = "Unfortunately, your browser does not support WebGL! Some visual effects will not be displayed properly.";
+	var J = [17.5, 2.8, 25];
+	var m = 1;
+	var buttons = { toss:function(){ toss() }, reset:function(){window.location.reload()}, about:function(){alert(description);},eulermess:function(){alert(eulermessage);}};
+	
+			var graphs = {
+			div1: "empty",
+			div2: "empty",
+			div3: "empty"
+			};
+	
+			var parameters = {
+			g: 9.81,
+			x_dot: 0.5,
+			y_dot: 0.5,
+			z_dot: 4.0,
+			duration: 1.2,
+			step: 0.5,
+			w1: 0.1,
+			w2: 10,
+			w3: 0.1,
+			trajectory: false
+			};
+		  
+			var sprite1;
+			var canvas1, context1, texture1;
+			
+	        var projector, mouse = { x: 0, y: 0 }, INTERSECTED;		
+		    var wid_height_ratio = 3;
+			var scene = new THREE.Scene();
+			var container = document.getElementById('canvas');
+			/////// draw text on canvas /////////
+
+			// create a canvas element
+			canvas1 = document.createElement('canvas');
+			context1 = canvas1.getContext('2d');
+			context1.font = "Bold 20px Arial";
+			context1.fillStyle = "rgba(0,0,0,0.95)";
+			context1.fillText('', 0, 20);
+			
+			// canvas contents will be used for a texture
+			texture1 = new THREE.Texture(canvas1) 
+			texture1.needsUpdate = true;
+	
+	
+			////////////////////////////////////////
+	
+			var spriteMaterial = new THREE.SpriteMaterial( { map: texture1, useScreenCoordinates: true, alignment: THREE.SpriteAlignment.topLeft } );
+			
+			sprite1 = new THREE.Sprite( spriteMaterial );
+			
+			sprite1.scale.set(200,100,1.0);
+			sprite1.position.set( 50, 50, 0 );
+			scene.add( sprite1 );	
+
+			//////////////////////////////////////////
+			grid = new THREE.GridHelper(50, 10);
+			grid.name = "Grid";
+			scene.add(grid);
+			//scene.remove(grid);
+			
+			// check webgl
+			webgl_det = Detector.webgl;
+			
+			var camera = new THREE.PerspectiveCamera(100, window.innerWidth/window.innerHeight , 0.001, 10000);
+			camera.lookAt(scene.position);
+			if (!webgl_det)
+			{alert(webglwarning)
+			};
+			
+			var renderer = webgl_det? new THREE.WebGLRenderer({antialias:true}): new THREE.CanvasRenderer();
+
+			renderer.setClearColor( 0xffffff, 1) 
+			          
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);		
+
+			//adding light
+			var light = new THREE.HemisphereLight( 0xFFFFFF, 0xFFFFFF, 1.5); // soft white light
+            scene.add( light );
+  
+			// defining materials
+			var material = new THREE.MeshBasicMaterial({color:000000});
+			var material_corot = new THREE.MeshBasicMaterial({color:0xff9900});
+			var material_red = new THREE.MeshBasicMaterial({color: 0xff0000});
+			var material_green = new THREE.MeshBasicMaterial({color: 0x00ff00});
+			var material_blue = new THREE.MeshBasicMaterial({color: 0x0000ff})
+			var block_mat = new THREE.MeshBasicMaterial({color: 0x990000,transparent: true, opacity: 0.9});
+			var block_mat2 = new THREE.MeshBasicMaterial({color:0xFFFFFF,wireframe: true});
+			var done = true;
+			
+			// defining geometries
+			var shaftlen = 35;
+			var shaftthickness = 0.7;
+			var spheregeo = new THREE.SphereGeometry(2);
+			var shaftgeo = new THREE.CylinderGeometry(shaftthickness, shaftthickness, shaftlen,shaftlen,1,false);
+			var arrowtipgeo = new THREE.CylinderGeometry(0,2.5  ,6,6,1,false);
+			
+		    var texture = THREE.ImageUtils.loadTexture('http://upload.wikimedia.org/wikipedia/commons/0/02/Surface_wooden_furniture_interior_design_texture.jpg', {}, function(){ renderer.render(scene, camera); } );
+   
+            //var texture = THREE.ImageUtils.loadTexture('http://rotations.berkeley.edu/js/BlockToss/oorbook.jpg', {}, function(){ renderer.render(scene, camera); } );
+			
+           
+			//var material_texture = Detector.webgl? new THREE.MeshLambertMaterial({map: texture}): new THREE.CanvasRenderer();
+			var material_texture = webgl_det? new THREE.MeshLambertMaterial({map: texture}):new THREE.MeshLambertMaterial({ color: 0x00ee00, wireframe: true });
+			texture.needsUpdate = true;
+			var rectgeo = new THREE.CubeGeometry(J[0],J[1],J[2]);
+			//projection calculations
+			projector = new THREE.Projector();
+			//mouse call
+			container.addEventListener('mousemove', onDocumentMouseMove, false );
+			init();
+			camera.position = new THREE.Vector3(80,40,110);
+			
+			
+			function onDocumentMouseMove( event ) 
+	{
+		event.preventDefault();
+		sprite1.position.set( event.clientX, event.clientY - 20, 0 );
+		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+		mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+	}
+				document.onkeypress = function(e) {
+		e = e || window.event;
+		var charCode = (typeof e.which == "number") ? e.which : e.keyCode;
+		if (String.fromCharCode(charCode) == 't') {
+			toss(); 
+		}
+		else if (String.fromCharCode(charCode) == 'r') {
+			window.location.reload();
+		}
+	};
+		
+	
+		function liveLabels()
+{
+	
+	// create a Ray with origin at the mouse position
+	//   and direction into the scene (camera direction)
+	var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
+	projector.unprojectVector( vector, camera );
+	var ray = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
+
+	// create an array containing all objects in the scene with which the ray intersects
+	var intersects = ray.intersectObjects( scene.children );
+
+	// INTERSECTED = the object in the scene currently closest to the camera 
+	//		and intersected by the Ray projected from the mouse position 	
+	
+	// if there is one (or more) intersections
+	if ( intersects.length > 0 )
+	{
+		// if the closest object intersected is not the currently stored intersection object
+		if ( intersects[ 0 ].object != INTERSECTED &  intersects[ 0 ].object != grid ) 
+		{
+		    // restore previous intersection object (if it exists) to its original color
+			if ( INTERSECTED ) 
+				INTERSECTED.material.color.setHex( INTERSECTED.currentHex );
+			// store reference to closest object as current intersection object
+			INTERSECTED = intersects[ 0 ].object;
+			// store color of closest object (for later restoration)
+			INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
+			// set a new color for closest object
+			INTERSECTED.material.color.setHex( 0xffff00 );
+			
+			// update text, if it has a "name" field.
+			if ( intersects[ 0 ].object.name )
+			{
+				context1.clearRect(0,0,640,480);
+				var message = intersects[ 0 ].object.name;
+				var metrics = context1.measureText(message);
+				var width = metrics.width;
+				context1.fillStyle = "rgba(0,0,0,0.95)"; // black border
+				context1.fillRect( 0,0, width+8,20+8);
+				context1.fillStyle = "rgba(255,255,255,0.95)"; // white filler
+				context1.fillRect( 2,2, width+4,20+4 );
+				context1.fillStyle = "rgba(0,0,0,1)"; // text color
+				context1.fillText( message, 4,20 );
+				texture1.needsUpdate = true;
+			}
+			else
+			{
+				context1.clearRect(0,0,300,300);
+				texture1.needsUpdate = true;
+			}
+		}
+	} 
+	else // there are no intersections
+	{
+		// restore previous intersection object (if it exists) to its original color
+		if ( INTERSECTED ) 
+			INTERSECTED.material.color.setHex( INTERSECTED.currentHex );
+		// remove previous intersection object reference
+		//     by setting current intersection object to "nothing"
+		INTERSECTED = null;
+		context1.clearRect(0,0,300,300);
+		texture1.needsUpdate = true;
+	}
+
+	
+	controls.update();
+
+}
+			function init()
+			{
+			
+			var gui = new dat.GUI();
+			
+				
+			//Checkbox field
+			//gui.add(parameters, "check");
+			var f1 = gui.addFolder('Physical Parameters');
+			f1.add(parameters, "g").min(-30).max(30).step(0.01).name("g (m/s²)");
+			f1.add(parameters, "x_dot").min(-10).max(10).step(0.1).name("ẋ(0) (m/s)");
+			f1.add(parameters, "y_dot").min(-10).max(10).step(0.1).name("ẏ(0) (m/s)");
+			f1.add(parameters, "z_dot").min(-10).max(10).step(0.1).name("ż(0) (m/s)");
+			f1.add(parameters, "w1").min(-30).max(30).step(0.01).name("ω₁(0) (rad/s)");
+			f1.add(parameters, "w2").min(-30).max(30).step(0.01).name("ω₂(0) (rad/s)");
+			f1.add(parameters, "w3").min(-30).max(30).step(0.01).name("ω₃(0) (rad/s)");
+			var f2 = gui.addFolder('Graphs');
+			var graph1 = f2.add(graphs, "div1", [ "x", "y", "z", "empty"] ).name("Graph Area 1")
+			var graph2 =f2.add(graphs, "div2", [ "ω₁", "ω₂", "ω₃", "empty"  ] ).name("Graph Area 2")
+			var graph3 =f2.add(graphs, "div3", [ "ψ", "θ", "φ", "E/E₀", "empty"  ] ).name("Graph Area 3")
+			//on change graph area
+	
+			
+			var f3 = gui.addFolder('Animation Parameters');
+			f3.add(parameters, "trajectory").name("Draw Trajectory");
+			f3.add(parameters, "duration").min(0).max(10).step(0.1).name("Duration (s)");
+			f3.add(parameters, "step").min(0).max(1).step(0.01).name("Animation Step");
+			var f4 = gui.addFolder('Information');
+			f4.add(buttons,'about').name('About');
+			f4.add(buttons,'eulermess').name('Euler Angles');
+			gui.add(buttons,'reset').name("Reset (R)");
+			gui.add(buttons,'toss').name("Toss (T)");
+
+			//physics script
+			  
+		    
+			origin = new THREE.Mesh(spheregeo, material);
+			origin.name = "Origin";
+			scene.add(origin);
+				
+			//shaft 1
+			
+			shaft1 = new THREE.Mesh(shaftgeo, material_red);
+			origin.add(shaft1);
+			scene.add(shaft1);
+			shaft1.translateOnAxis(new THREE.Vector3(0,1,0), shaftlen/2);
+			
+			
+			arrowtip1 = new THREE.Mesh(arrowtipgeo, material_red);
+		  	arrowtip1.translateOnAxis(new THREE.Vector3(0,1,0), shaftlen);
+			origin.add(arrowtip1);
+			origin.remove(shaft1);
+			scene.add(shaft1);
+			shaft1.name = "z-axis";
+			
+			//shaft2
+			shaft2 = new THREE.Mesh(shaftgeo, material_green);
+			origin.add(shaft2);
+			shaft2.rotateOnAxis(new THREE.Vector3(0,0,1), -Math.PI/2);
+			shaft2.translateOnAxis(new THREE.Vector3(0,1,0), shaftlen/2);
+			
+			arrowtip2 = new THREE.Mesh(arrowtipgeo, material_green);
+		  	arrowtip2.translateOnAxis(new THREE.Vector3(0,1,0), shaftlen/2);
+			shaft2.add(arrowtip2);
+			origin.remove(shaft2);
+			scene.add(shaft2);
+			shaft2.name = "y-axis";
+			
+			//shaft 3
+			shaft3 = new THREE.Mesh(shaftgeo, material_blue);
+			origin.add(shaft3);
+			shaft3.rotateOnAxis(new THREE.Vector3(1,0,0), Math.PI/2);
+			shaft3.translateOnAxis(new THREE.Vector3(0,1,0), shaftlen/2);
+			
+			arrowtip3 = new THREE.Mesh(arrowtipgeo, material_blue);
+		  	arrowtip3.translateOnAxis(new THREE.Vector3(0,1,0), shaftlen/2);
+			shaft3.add(arrowtip3);
+			origin.remove(shaft3);
+			scene.add(shaft3);
+			shaft3.name = "x-axis";			
+			//block
+			block = new THREE.Mesh(rectgeo, material_texture);
+			block.name = J[2] + " cm × " + J[0] + " cm × " + J[1] + " cm";
+			scene.add(block);
+	
+			var render = function () 
+			{
+		
+			requestAnimationFrame(render);
+				liveLabels();
+			renderer.render(scene, camera);
+			
+			};
+			render();
+			
+			}
+			
+			function toss()
+			{
+			if (done)
+			{
+			//reset block
+			done = false;
+			block.rotation.x = 0;
+			block.rotation.y = 0;
+			block.rotation.z = 0;
+			block.position.x = 0;
+			block.position.y = 0;
+			block.position.z = 0;
+			
+			//parsing initial conditions
+			
+			g = 100*parameters.g;
+			x_dot = 100*parameters.y_dot; //5
+			y_dot = 100*parameters.z_dot; //50
+			z_dot = 100*parameters.x_dot; //5			
+			duration = parameters.duration; //15
+			step = parameters.step/30; // 0.08				
+			w1 = parameters.w2; //1
+			w2 = parameters.w3; //0.1
+			w3 = parameters.w1; //0.1
+
+
+			//solving ODEs
+			
+        	f = function(t,Y) 
+        	
+        	{
+        	var dY = [];
+            dY[0] = 0;
+            dY[1] = -g;
+            dY[2] = 0;
+            dY[3] = Y[0];
+            dY[4] = Y[1];
+            dY[5] = Y[2];
+            dY[6] = Y[7]*Y[8]*(J[1]-J[2])/J[0];
+            dY[7] = Y[6]*Y[8]*(J[2]-J[0])/J[1];
+            dY[8] = Y[6]*Y[7]*(J[0]-J[1])/J[2];
+            dY[9] = Y[7]*Math.sin(Y[11])*1/(Math.cos(Y[10])) + Y[8]*Math.cos(Y[11])*1/(Math.cos(Y[10]));
+            dY[10] = Y[7]*Math.cos(Y[11]) - Y[8]*Math.sin(Y[11]);
+            dY[11] = Y[6] + Y[7]*Math.sin(Y[11])*Math.tan(Y[10]) + Y[8]*Math.cos(Y[11])*Math.tan(Y[10]);
+       
+	        return dY;
+            }
+     
+			 sol = numeric.dopri(0,duration,[x_dot,y_dot,z_dot,0,0,0,w1,w2,w3,0,0,0],f,1e-10,1e10);
+			 
+			 var t = [];
+			 for (var i = 0; i < duration; i += step)
+			 {
+			 t.push(i);
+			 }
+			 
+
+			 sol_y = numeric.transpose(sol.at(t));
+			 sol_x = t;
+
+			 var plot_index = 5;
+			 var data = []; // positions
+			 var data2 = []; //angular velocities
+			 var data3 = []; //3-2-1 euler angles + energy
+			
+			//reset toss
+			
+			var X = new THREE.Vector3(1,0,0);
+			var Y = new THREE.Vector3(0,1,0);
+			var Z = new THREE.Vector3(0,0,1);
+			
+			var xdot = sol_y[0];
+			var ydot = sol_y[1];
+			var zdot = sol_y[2];
+			
+			var w1s = sol_y[6]; 
+			var w2s = sol_y[7];
+			var w3s = sol_y[8];
+			
+			var psi = sol_y[9];
+			var theta = sol_y[10];
+			var phi = sol_y[11];
+			
+			var pos_x = sol_y[3];
+			var pos_y = sol_y[4];
+			var pos_z = sol_y[5];
+			
+			var E_trans = [];
+			var E_rot = [];
+			var E_pot = [];
+			var E = [];
+			
+			E_trans = numeric.add(numeric.mul(xdot,xdot,m/2),numeric.mul(ydot,ydot,m/2),numeric.mul(zdot,zdot,m/2));
+			E_rot = numeric.add(numeric.mul(w1s,w1s,J[0]/2),numeric.mul(w2s,w2s,J[1]/2),numeric.mul(w3s,w3s,J[2]/2));
+			E_pot = numeric.mul(m,g,pos_y);
+			
+			E_init = E_trans[0] + E_rot[0] + E_pot[0]; 
+			E = numeric.div(numeric.add(E_trans,E_rot,E_pot),E_init);
+			
+			
+			var quat = new THREE.Quaternion();
+
+			var i = 0;
+			var len = psi.length;
+			var g;
+			var graph_color = "black";
+			
+			var material_line = new THREE.LineBasicMaterial( { color: 0x000300, opacity: 1} );
+			//material_line = new THREE.ParticleSystemMaterial({color: 0x686868 ,  size: 2});
+			var xyz_choice;
+			var angle_choice;
+			var w_choice;
+			
+			// plotting graph
+			// graph area 1
+			if (graphs.div1 == "empty")
+			{
+			g1 = new Dygraph(document.getElementById("div1"))
+			g1.destroy();
+			}
+			
+			
+			if (graphs.div1 != "empty")
+			{
+			if (graphs.div1 == 'y')
+			{
+			xyz_choice = pos_x;
+			}
+			else if (graphs.div1 == 'z')
+			{
+			xyz_choice = pos_y;
+			}
+			else if (graphs.div1 == 'x')
+			{
+			xyz_choice = pos_z;
+			}
+			
+			g1 = new Dygraph(document.getElementById("div1"), data,
+                          {
+                           title: graphs.div1 + ' vs. t',
+                           titleHeight: 25,
+						   colors : [ graph_color ],
+                            xlabel: 't(s)',
+                            ylabel: graphs.div1 + ' (cm)',
+                            //drawPoints: true,
+                            valueRange: [Math.min.apply(null,xyz_choice)
+							, Math.max.apply(null,xyz_choice)],
+                           labels: ['t', graphs.div1],
+                           
+                          });
+			}
+            //graph area 2
+			if (graphs.div2 == "empty")
+			{
+			g2 = new Dygraph(document.getElementById("div2"))
+			g2.destroy();
+			}
+			
+			
+			if (graphs.div2 != "empty")
+			{
+			if (graphs.div2 == 'ω₂')
+			{
+			w_choice = w1s;
+			}
+			else if (graphs.div2 == 'ω₃')
+			{
+			w_choice = w2s;
+			}
+			else if (graphs.div2 == 'ω₁')
+			{
+			w_choice = w3s;
+			}
+            g2 = new Dygraph(document.getElementById("div2"), data2,
+                          {
+                           title: graphs.div2+ ' vs. t',
+                           titleHeight: 25,
+						   colors : [ graph_color ],
+                            xlabel: 't (s)',
+                            ylabel: graphs.div2 + ( " (rad/s)"),
+                            //drawPoints: true,
+                            valueRange: [Math.min.apply(null,w_choice)
+							, Math.max.apply(null,w_choice)],
+                           labels: ['t', graphs.div2],
+                           
+                          });
+		    }
+			//graph area 3
+			if (graphs.div3 == "empty")
+			{
+			g3 = new Dygraph(document.getElementById("div3"))
+			g3.destroy();
+			}
+			
+			if (graphs.div3 != "empty" & graphs.div3 != "E/E₀")
+			{
+			if (graphs.div3 == 'ψ')
+			{
+			angle_choice = psi;
+			}
+			else if (graphs.div3 == 'θ')
+			{
+			angle_choice = theta;
+			}
+			else if (graphs.div3 == 'φ')
+			{
+			angle_choice = phi;
+			}
+			g3 = new Dygraph(document.getElementById("div3"), data3,
+                          {
+                           title: graphs.div3 + ' vs. t',
+                           titleHeight: 25,
+						   colors : [ graph_color ],
+                            xlabel: 't (s)',
+                            ylabel: graphs.div3 + ' (rad)',
+                            //drawPoints: true,
+                            valueRange: [Math.min.apply(null,angle_choice)
+							, Math.max.apply(null,angle_choice)],
+                           labels: ['t', graphs.div3],
+                           
+                          });
+			}
+			else if (graphs.div3 == "E/E₀")
+			{
+			angle_choice = E;
+			g3 = new Dygraph(document.getElementById("div3"), data3,
+                          {
+                           title: graphs.div3 + ' vs. t',
+                           titleHeight: 25,
+						   colors : [ graph_color ],
+                            xlabel: 't (s)',
+                            ylabel: graphs.div3,
+                            //drawPoints: true,
+                            valueRange: [0.9
+							, 1.1],
+                           labels: ['t', graphs.div3],
+                           
+                          });
+			}
+			
+			points_to_skip = 1;
+			function animate()
+			{
+			             
+			if (i < len - 1)
+			{
+			
+			var trajectgeo = new THREE.Geometry();
+			for(var j = 0; j <= i; j = j + points_to_skip) 
+			{
+			trajectgeo.vertices.push( new THREE.Vector3( pos_x[j], pos_y[j], pos_z[j] ) );         
+			}
+			var traject = new THREE.Line( trajectgeo, material_line );
+			traject.name = "Trajectory of Center of Mass";
+			if (parameters.trajectory)
+			{
+			scene.add(traject);
+			}
+			
+			
+			
+			requestAnimationFrame(animate);
+			render(i);
+			
+			//undoing old animation
+			
+			scene.remove(traject);
+			quat.setFromAxisAngle(X,-phi[i]);
+			block.quaternion.multiplyQuaternions(block.quaternion,quat);
+			
+			quat.setFromAxisAngle(Y,-theta[i]);
+		    block.quaternion.multiplyQuaternions(block.quaternion,quat);
+					
+			quat.setFromAxisAngle(Z,-psi[i]);
+			block.quaternion.multiplyQuaternions(block.quaternion,quat);
+									
+			
+			//update graphs
+			if (graphs.div1 != "empty")
+			{
+			data.push([Math.round(sol_x[i]*100)/100,xyz_choice[i]]);
+			g1.updateOptions( { 'file': data} );
+			}
+			
+			if (graphs.div2 != "empty")
+			{
+			data2.push([Math.round(sol_x[i]*100)/100, w_choice[i]]);
+			g2.updateOptions( { 'file': data2} );
+			}
+			
+			if (graphs.div3 != "empty")
+			{
+			data3.push([Math.round(sol_x[i]*100)/100,angle_choice[i]]);
+			g3.updateOptions( { 'file': data3 } );  
+			}
+			// increment i;
+			i++;
+			
+			}
+			else if (i < len)
+			{
+			
+			var trajectgeo = new THREE.Geometry();
+			
+			for(var j = 0; j <= i; j = j + + points_to_skip) 
+			{
+			trajectgeo.vertices.push( new THREE.Vector3( pos_x[j], pos_y[j], pos_z[j] ) );         
+			}
+			var traject = new THREE.Line( trajectgeo, material_line );
+			traject.name = "Trajectory of Center of Mass";
+			if (parameters.trajectory)
+			{
+			scene.add(traject);
+			}
+			requestAnimationFrame(animate);
+			render(i);
+						
+			
+			// updating graph
+	 
+			if (graphs.div1 != "empty")
+			{
+			data.push([Math.round(sol_x[i]*100)/100,xyz_choice[i]]);
+			g1.updateOptions( { 'file': data} );
+			}
+			
+			if (graphs.div2 != "empty")
+			{
+			data2.push([Math.round(sol_x[i]*100)/100, w_choice[i]]);
+			g2.updateOptions( { 'file': data2} );
+			}
+			
+			if (graphs.div3 != "empty")
+			{
+			data3.push([Math.round(100*(sol_x[i]))/100,angle_choice[i]]);
+			g3.updateOptions( { 'file': data3 } );  
+			}
+			
+						  
+						  
+			// increment i;
+			i++;
+			done = true;
+			}
+			}
+			
+			var render = function (i) 
+			{	
+			
+				quat.setFromAxisAngle(Z,psi[i]);
+				block.quaternion.multiplyQuaternions(block.quaternion,quat);
+		
+				quat.setFromAxisAngle(Y,theta[i]);
+				block.quaternion.multiplyQuaternions(block.quaternion,quat);
+				
+				quat.setFromAxisAngle(X,phi[i]);
+				block.quaternion.multiplyQuaternions(block.quaternion,quat);
+		   	
+				block.position.x = pos_x[i];
+				block.position.y = pos_y[i];
+				block.position.z = pos_z[i];
+				
+				renderer.render(scene, camera);
+			};
+			
+			animate();
+			
+			}
+	}
+		</script>
+	</body>
+</html>
